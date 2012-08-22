@@ -10,12 +10,12 @@ rm -rf target
 lein jar
 
 cd target
-rm -rf fullconf.pro
-echo "-injars $JAR" >> fullconf.pro
-echo "-libraryjars $CLOJURE_JAR" >>fullconf.pro
-echo "-outjars $JAR_PG" >>fullconf.pro
-cat ../conf.pro >>fullconf.pro
-java -cp `lein classpath` proguard.ProGuard @fullconf.pro
+echo "-injars $JAR" >> conf.pro
+echo "-outjars $JAR_PG" >> conf.pro
+echo "-libraryjars <java.home>/lib/rt.jar" >> conf.pro
+echo "-libraryjars $CLOJURE_JAR" >> conf.pro
+echo "-keep public class $PROJECT {public static void main(java.lang.String[]);}" >> conf.pro
+java -cp `lein classpath` proguard.ProGuard @conf.pro
 
 mv $JAR $PROJECT-leiningen.jar
 mv $JAR_PG $JAR
