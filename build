@@ -2,7 +2,10 @@
 
 PROJECT=four
 JAR=$PROJECT.jar
+JAR_OUT=$PROJECT-pg.jar
+#CLOJURE_VERSION=1.4.0
 CLOJURE_VERSION=1.5.0-alpha3
+CLOJURE_JAR=~/.m2/repository/org/clojure/clojure/$CLOJURE_VERSION/clojure-$CLOJURE_VERSION.jar
 
 rm -rf target
 lein jar
@@ -12,13 +15,22 @@ zip -q $JAR -d "META-INF/maven*" "META-INF/leiningen*" "*.class"
 cd classes
 zip -q ../$JAR $PROJECT.class
 cd ..
+
 pack200  -G -Ustrip -r $JAR
-SIZE=`ls -l $JAR | awk '{print $5}'`
-echo "$JAR $SIZE"
+
+rm -rf fullconf.pro
+echo "-injars $JAR" >> fullconf.pro
+echo "-libraryjars $CLOJURE_JAR" >>fullconf.pro
+echo "-outjars $JAR_OUT" >>fullconf.pro
+cat ../conf.pro >>fullconf.pro
+java -jar ../proguard.jar @fullconf.pro
+
+SIZE=`ls -l $JAR_OUT | awk '{print $5}'`
+echo "$JAR_OUT $SIZE"
 
 if [ $SIZE -gt 4096 ]; then
-   echo "$JAR is too big"
+   echo "$JAR_OUT is too big"
    exit 1
 fi
 
-java -cp ~/.m2/repository/org/clojure/clojure/$CLOJURE_VERSION/clojure-$CLOJURE_VERSION.jar:$JAR $PROJECT
+java -cp $CLOJURE_JAR:$JAR_OUT $PROJECT
