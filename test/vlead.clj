@@ -91,34 +91,38 @@
 (defn note-length [length]
   (* length seconds-per-beat sample-rate))
 
-;; Many things wrong here, how it's done, the calculations.
 (defn adsr [a d s r]
   (let [[a d r] (map note-length [a d r])]
-    (fn [l t]
-      (cond
-       (< t a) (/ t a)
-       (< t (+ a d)) (- 1 (* (/ (- t a) d) (- 1 s)))
-       (>= t (- l r)) (- s (/ (- t (- l r)) l))
-       :else s))))
+    [r
+     (fn [l t]
+       (cond
+        (>= t (- l r)) (- s (* (- t (- l r)) (/ s r)))
+        (< t a) (/ t a)
+        (< t (+ a d)) (- 1 (* (- t a) (/ (- 1 s) d)))
+        :else s))]))
 
 (defn arity [f]
   (count (.getParameterTypes (first (.getDeclaredMethods (class f))))))
 
 (defn envelope [vol length]
-  (cond
-   (nil? vol) (constantly 1)
-   (= 2 (arity vol)) (partial vol (note-length length))
-   :else vol))
+  (let [length (note-length length)]
+    (cond
+     (nil? vol) [length (constantly 1)]
+     (vector? vol) (let [[extra-length vol] vol
+                         length (+ length extra-length)]
+                     [length (partial vol length)])
+     :else [length vol])))
 
 (defn tone
   ([] (tone [:a 4]))
   ([note] (tone note 1.0))
   ([note length] (tone note length sin))
   ([[n oct & [note-osc vol]] length osc]
-     (->> (iterate inc 0)
-          (map (juxt (partial (or note-osc osc) (note [n oct])) (envelope vol length)))
-          (map (partial apply *))
-          (take (note-length length)))))
+     (let [[length vol] (envelope vol length)]
+       (->> (iterate inc 0)
+            (map (juxt (partial (or note-osc osc) (note [n oct])) vol))
+            (map (partial apply *))
+            (take length)))))
 
 (defn mix [& tracks]
   (/ (apply + tracks) (count tracks)))
