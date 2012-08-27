@@ -91,6 +91,9 @@
 (defn note-length [length]
   (* length seconds-per-beat sample-rate))
 
+(defn frequency-of-length [length]
+  (/ sample-rate (note-length length)))
+
 (defn adsr [a d s r]
   (let [[a d r] (map note-length [a d r])]
     [r
