@@ -114,33 +114,35 @@
      :else [length vol])))
 
 ;; Translated into Clojure from http://www.musicdsp.org/showArchiveComment.php?ArchiveID=26
-(defn lp-filter [fc res samples]
-  (->> samples
-       (reductions (fn [[in out] input]
-                     (let [f (* fc 1.16)
-                           fb (* res (- 1.0 (* 0.15 f f)))]
-                       (let [input (-> input
-                                       (- (* (last out) fb))
-                                       (* 0.35013 (* f f) (* f f)))
-                             out (->> (map vector in out)
-                                      (reductions (fn [input [in out]]
-                                                    (+ input (* 0.3 in) (* (- 1 f) out)))
-                                                  input)
-                                      rest)
-                             in (cons input (take 3 out))]
-                         [in out])))
-                   [(repeat 4 0) (repeat 4 0)])
-       (map (comp last second))))
+(defn lp-filter
+  ([fc res samples]
+     (->> (map vector samples (iterate inc 0))
+          (reductions (fn [[in out] [input t]]
+                        (let [f (* (as-period (fc t)) 1.16)
+                              fb (* (as-period (res t)) (- 1.0 (* 0.15 f f)))]
+                          (let [input (-> input
+                                          (- (* (last out) fb))
+                                          (* 0.35013 (* f f) (* f f)))
+                                out (->> (map vector in out)
+                                         (reductions (fn [input [in out]]
+                                                       (+ input (* 0.3 in) (* (- 1 f) out)))
+                                                     input)
+                                         rest)
+                                in (cons input (take 3 out))]
+                            [in out])))
+                      [(repeat 4 0) (repeat 4 0)])
+          (map (comp last second)))))
 
 (defn tone
   ([] (tone [:a 4]))
   ([note] (tone note 1.0))
   ([note length] (tone note length sin))
-  ([[n oct & [note-osc vol]] length osc]
+  ([[n oct & [note-osc vol fc res]] length osc]
      (let [[length vol] (envelope vol length)]
        (->> (iterate inc 0)
             (map (juxt (partial (or note-osc osc) (note [n oct])) vol))
             (map (partial apply *))
+            (lp-filter (or fc (constantly 1)) (or res (constantly 0)))
             (take length)))))
 
 (defn mix [& tracks]
