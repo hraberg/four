@@ -113,26 +113,24 @@
                      [length (partial vol length)])
      :else [length vol])))
 
-;; Literal trascription into Clojure from http://www.musicdsp.org/showArchiveComment.php?ArchiveID=26
-;; Eagerly consumes all samples.
+;; Translated into Clojure from http://www.musicdsp.org/showArchiveComment.php?ArchiveID=26
 (defn lp-filter [fc res samples]
-  (loop [in (repeat 4 0)
-         out (repeat 4 0)
-         [input & samples] samples
-         acc ()]
-    (let [f (* fc 1.16)
-          fb (* res (- 1.0 (* 0.15 f f)))]
-      (if input
-        (let [input (-> input
-                        (- (* (last out) fb))
-                        (* 0.35013 (* f f) (* f f)))
-              out (->> (map vector in out)
-                       (reductions (fn [input [in out]]
-                                     (+ input (* 0.3 in) (* (- 1 f) out))) input)
-                       rest)
-              in (cons input (take 3 out))]
-          (recur in out samples (cons (last out) acc)))
-        acc))))
+  (->> samples
+       (reductions (fn [[in out] input]
+                     (let [f (* fc 1.16)
+                           fb (* res (- 1.0 (* 0.15 f f)))]
+                       (let [input (-> input
+                                       (- (* (last out) fb))
+                                       (* 0.35013 (* f f) (* f f)))
+                             out (->> (map vector in out)
+                                      (reductions (fn [input [in out]]
+                                                    (+ input (* 0.3 in) (* (- 1 f) out)))
+                                                  input)
+                                      rest)
+                             in (cons input (take 3 out))]
+                         [in out])))
+                   [(repeat 4 0) (repeat 4 0)])
+       (map (comp last second))))
 
 (defn tone
   ([] (tone [:a 4]))
