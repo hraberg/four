@@ -53,42 +53,72 @@
 (defn amp [^double velocity ^double x]
   (* velocity x))
 
-(defn phase [^double period ^long t]
-  (/ (mod t period) period))
+(defn phase [^double hz ^long t]
+  (let [period (period hz)]
+    (/ (mod t period) period)))
 
-(defn sin [^double hz ^long t]
-  (Math/sin (* (phase (period hz) t) 2.0 Math/PI)))
+(defn phase-modulation [fm ^double hz ^long t]
+  (* (as-period (fm t)) (phase hz t)))
+
+(defn sin
+  ([^double hz ^long t] (sin (constantly 1.0) hz t))
+  ([fm ^double hz ^long t]
+     (Math/sin (* (phase-modulation fm hz t) 2.0 Math/PI))))
 
 (defn sqr
   ([^double hz ^long t] (sqr (constantly 0.5) hz t))
   ([pwm ^double hz ^long t]
-     (if (< (phase (period hz) t) (as-period (pwm t))) 1.0 -1.0)))
+     (if (< (phase hz t) (as-period (pwm t))) 1.0 -1.0)))
 
-(defn tri [^double hz ^long t]
-  (let [phase (phase (period hz) t)]
-    (cond (< phase 0.25) (* phase 4)
-          (< phase 0.75) (* (- phase 0.5) -4)
-          :else (* (- phase 1) 4))))
+(defn tri
+  ([^double hz ^long t] (tri (constantly 1.0) hz t))
+  ([fm ^double hz ^long t]
+     (let [phase (phase-modulation fm hz t)]
+       (cond (< phase 0.25) (* phase 4)
+             (< phase 0.75) (* (- phase 0.5) -4)
+             :else (* (- phase 1) 4)))))
 
-(defn saw [^double hz ^long t]
-  (let [phase (phase (period hz) t)]
-    (if (< phase 0.5) (* phase 2) (* (- phase 1) 2))))
+(defn saw
+  ([^double hz ^long t] (saw (constantly 1.0) hz t))
+  ([fm ^double hz ^long t]
+     (let [phase (phase-modulation fm hz t)]
+       (if (< phase 0.5) (* phase 2) (* (- phase 1) 2)))))
 
 (defn rnd [_ _]
   (- (rand 2) 1))
 
 (def seconds-per-beat (/ 60.0 bpm))
+(defn note-length [length]
+  (* length seconds-per-beat sample-rate))
+
+;; Many things wrong here, how it's done, the calculations.
+(defn adsr [a d s r]
+  (let [[a d r] (map note-length [a d r])]
+    (fn [l t]
+      (cond
+       (< t a) (/ t a)
+       (< t (+ a d)) (- 1 (* (/ (- t a) d) (- 1 s)))
+       (>= t (- l r)) (- s (/ (- t (- l r)) l))
+       :else s))))
+
+(defn arity [f]
+  (count (.getParameterTypes (first (.getDeclaredMethods (class f))))))
+
+(defn envelope [vol length]
+  (cond
+   (nil? vol) (constantly 1)
+   (= 2 (arity vol)) (partial vol (note-length length))
+   :else vol))
 
 (defn tone
   ([] (tone [:a 4]))
   ([note] (tone note 1.0))
   ([note length] (tone note length sin))
   ([[n oct & [note-osc vol]] length osc]
-     (let [length (* length seconds-per-beat sample-rate)]
-       (->> (iterate inc 0)
-            (map (partial (or note-osc osc) (note [n oct])))
-            (map (partial * (or vol 1)))
-            (take length)))))
+     (->> (iterate inc 0)
+          (map (juxt (partial (or note-osc osc) (note [n oct])) (envelope vol length)))
+          (map (partial apply *))
+          (take (note-length length)))))
 
 (defn mix [& tracks]
   (/ (apply + tracks) (count tracks)))
