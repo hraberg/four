@@ -6,23 +6,16 @@
 ;; In remembrance of http://www.nada.kth.se/~raberg/vl.html, my 1996-97 Nord Lead simulator.
 ;; It more or less worked, was written in C++.
 
-;; It cannot do much, try:
-;; (->> (chord [[:a 4] [:e 4] [:c# 5]] 1/8)
-;;      (repeat 8)
-;;      (map play))
+;; Lowpass filter and pulse width modulated by a triangle waves:
+;; (play (chord [[:a 2 saw 0.7 (partial tri 4)]
+;;               [:e 3 (partial sqr (partial tri 2)) 0.2]] 5))
 
-;; A first stab at routing, some pulse width modulation:
-;; (play (tone [:a 4] 5 (partial sqr (partial tri 0.5))))
-
-;; Or a full chord with a different bass:
-;;;(let [inst (partial sqr (partial tri 0.5))]
-;;   (play (chord [[:a 2 saw] [:a 4] [:e 4] [:c# 5]] 5 inst)))
-
+;; The different components are chained together using partial and comp is just a raw form, no config DSL exitst.
 ;; I don't like the way the time / current frame pollutes the oscillator generation. Early days.
 
 (def bpm 120)
 (def sample-rate 44100)
-(def audio-format (AudioFormat. sample-rate 16 1 true true))
+(def ^AudioFormat audio-format (AudioFormat. sample-rate 16 1 true true))
 
 (def latency 10)
 (def buffer-size (/ (* sample-rate (.getFrameSize audio-format)) (/ 1000 latency)))
@@ -33,19 +26,13 @@
 (defn frequency [offset-from-a4]
   (* 440.0 (Math/pow 2 (/ offset-from-a4 12.0))))
 
-(defn midi-note [midi]
-  (frequency (- midi 69)))
-
-(def notes [:a :a# :b :c :c# :d :d# :e :f :f# :g :g#])
+(def ^clojure.lang.PersistentVector notes [:a :a# :b :c :c# :d :d# :e :f :f# :g :g#])
 
 (defn note [[n oct]]
   (frequency (+ (.indexOf notes n) (* 12 (- oct 4)))))
 
 (defn period [^double hz]
   (/ sample-rate hz))
-
-(defn abs [^double x]
-  (Math/abs x))
 
 (defn as-period [^double x]
   (/ (+ 1 x) 2))
@@ -91,8 +78,8 @@
 (defn note-length [length]
   (* length seconds-per-beat sample-rate))
 
-(defn frequency-of-length [length]
-  (/ sample-rate (note-length length)))
+(defn frequency-of-beat [beat]
+  (/ sample-rate (note-length beat)))
 
 (defn adsr [a d s r]
   (let [[a d r] (map note-length [a d r])]
@@ -104,17 +91,15 @@
         (< t (+ a d)) (- 1 (* (- t a) (/ (- 1 s) d)))
         :else s))]))
 
-(defn arity [f]
-  (count (.getParameterTypes (first (.getDeclaredMethods (class f))))))
-
 (defn envelope [vol length]
   (let [length (note-length length)]
-    (cond
-     (nil? vol) [length (constantly 1)]
-     (vector? vol) (let [[extra-length vol] vol
-                         length (+ length extra-length)]
-                     [length (partial vol length)])
-     :else [length vol])))
+    (condp some [vol]
+      nil? [length (constantly 1)]
+      number? [length (constantly vol)]
+      vector? (let [[extra-length vol] vol
+                    length (+ length extra-length)]
+                [length (partial vol length)])
+      [length vol])))
 
 ;; Translated into Clojure from http://www.musicdsp.org/showArchiveComment.php?ArchiveID=26
 (defn lp-filter
@@ -137,8 +122,6 @@
           (map (comp last second)))))
 
 (defn tone
-  ([] (tone [:a 4]))
-  ([note] (tone note 1.0))
   ([note length] (tone note length sin))
   ([[n oct & [note-osc vol fc res]] length osc]
      (let [[length vol] (envelope vol length)]
