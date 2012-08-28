@@ -104,27 +104,26 @@
 ;; Translated into Clojure from http://www.musicdsp.org/showArchiveComment.php?ArchiveID=26
 (def poles 4)
 
-(defn lp-filter
-  ([fc res samples]
-     (let [in (double-array poles)
-           out (double-array poles)]
-       (->>
-        (map vector samples (iterate inc 0))
-        (map (fn [[^double input ^long t]]
-               (let [f (* (fc t) 1.16)
-                     fb (* (res t) (- 1.0 (* 0.15 f f)))]
-                 (loop [input (-> input
-                                  (- (* (aget out (dec poles)) fb))
-                                  (* 0.35013 (* f f) (* f f)))
-                        idx 0]
-                   (if (== idx poles)
-                     input
-                     (let [output (+ input
-                                     (* 0.3 (aget in idx))
-                                     (* (- 1 f) (aget out idx)))]
-                       (aset out idx output)
-                       (aset in idx input)
-                       (recur output (inc idx))))))))))))
+(defn lp-filter [fc res samples]
+  (let [in (double-array poles)
+        out (double-array poles)]
+    (->>
+     (map vector samples (iterate inc 0))
+     (map (fn [[^double input ^long t]]
+            (let [f (* (fc t) 1.16)
+                  fb (* (res t) (- 1.0 (* 0.15 f f)))]
+              (loop [input (-> input
+                               (- (* (aget out (dec poles)) fb))
+                               (* 0.35013 (* f f) (* f f)))
+                     idx 0]
+                (if (== idx poles)
+                  input
+                  (let [output (+ input
+                                  (* 0.3 (aget in idx))
+                                  (* (- 1 f) (aget out idx)))]
+                    (aset out idx output)
+                    (aset in idx input)
+                    (recur output (inc idx)))))))))))
 
 (defn tone
   ([note length] (tone note length sin))
