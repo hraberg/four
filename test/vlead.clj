@@ -134,8 +134,7 @@
        (->> (iterate inc 0)
             (map (juxt (partial (or note-osc osc) (note [n oct])) vol))
             (map (partial apply *))
-            (lp-filter (or fc (constantly 1))
-                       (or res (constantly 0)))
+            (lp-filter (or fc (constantly 1)) (or res (constantly 0)))
             (take length)))))
 
 (defn mix [& tracks]
