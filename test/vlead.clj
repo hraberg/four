@@ -10,7 +10,7 @@
 ;; (play (chord [[:a 2 saw 0.7 (partial tri 4)]
 ;;               [:e 3 (partial sqr (partial tri 2)) 0.2]] 5))
 
-;; The different components are chained together using partial and comp, no config DSL exitst.
+;; The different components are chained together using partial and comp, no config DSL exists.
 ;; I don't like the way the time / current frame pollutes the oscillator generation. Early days.
 
 (def bpm 120)
