@@ -140,8 +140,8 @@
            [_ fc] (envelope fc length)
            [_ res] (envelope res length)]
        (->> (oscillator (or note-osc osc) (note [n oct]))
-            (velocity vol)
             (lp-filter (or fc (constantly 1)) (or res (constantly 0)))
+            (velocity vol)
             (take length)))))
 
 (defn mix [& tracks]
