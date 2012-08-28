@@ -81,10 +81,10 @@
 (defn frequency-of-beat [beat]
   (/ sample-rate (note-length beat)))
 
-(defn adsr [a d s r]
+(defn adsr [^double a ^double d ^double s ^double r]
   (let [[a d r] (map note-length [a d r])]
     [r
-     (fn [l t]
+     (fn [^double l ^long t]
        (cond
         (>= t (- l r)) (- s (* (- t (- l r)) (/ s r)))
         (< t a) (/ t a)
@@ -117,14 +117,14 @@
                                   (- (* (aget out (dec poles)) fb))
                                   (* 0.35013 (* f f) (* f f)))
                         idx 0]
-                   (if (< idx poles)
+                   (if (== idx poles)
+                     input
                      (let [output (+ input
                                      (* 0.3 (aget in idx))
                                      (* (- 1 f) (aget out idx)))]
                        (aset out idx output)
                        (aset in idx input)
-                       (recur output (inc idx)))
-                     input)))))))))
+                       (recur output (inc idx))))))))))))
 
 (defn tone
   ([note length] (tone note length sin))
