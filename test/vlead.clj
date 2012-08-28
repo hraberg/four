@@ -99,7 +99,7 @@
       vector? (let [[extra-length vol] vol
                     length (+ length extra-length)]
                 [length (partial vol length)])
-      [length vol])))
+      [length (comp as-period vol)])))
 
 ;; Translated into Clojure from http://www.musicdsp.org/showArchiveComment.php?ArchiveID=26
 (def poles 4)
@@ -111,8 +111,8 @@
        (->>
         (map vector samples (iterate inc 0))
         (map (fn [[^double input ^long t]]
-               (let [f (* (as-period (fc t)) 1.16)
-                     fb (* (as-period (res t)) (- 1.0 (* 0.15 f f)))]
+               (let [f (* (fc t) 1.16)
+                     fb (* (res t) (- 1.0 (* 0.15 f f)))]
                  (loop [input (-> input
                                   (- (* (aget out (dec poles)) fb))
                                   (* 0.35013 (* f f) (* f f)))
@@ -129,11 +129,14 @@
 (defn tone
   ([note length] (tone note length sin))
   ([[n oct & [note-osc vol fc res]] length osc]
-     (let [[length vol] (envelope vol length)]
+     (let [[length vol] (envelope vol length)
+           [_ fc] (envelope fc length)
+           [_ res] (envelope res length)]
        (->> (iterate inc 0)
             (map (juxt (partial (or note-osc osc) (note [n oct])) vol))
             (map (partial apply *))
-            (lp-filter (or fc (constantly 1)) (or res (constantly 0)))
+            (lp-filter (or fc (constantly 1))
+                       (or res (constantly 0)))
             (take length)))))
 
 (defn mix [& tracks]
