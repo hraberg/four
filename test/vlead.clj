@@ -102,24 +102,29 @@
       [length vol])))
 
 ;; Translated into Clojure from http://www.musicdsp.org/showArchiveComment.php?ArchiveID=26
+(def poles 4)
+
 (defn lp-filter
   ([fc res samples]
-     (->> (map vector samples (iterate inc 0))
-          (reductions (fn [[in out] [input t]]
-                        (let [f (* (as-period (fc t)) 1.16)
-                              fb (* (as-period (res t)) (- 1.0 (* 0.15 f f)))]
-                          (let [input (-> input
-                                          (- (* (last out) fb))
-                                          (* 0.35013 (* f f) (* f f)))
-                                out (->> (map vector in out)
-                                         (reductions (fn [input [in out]]
-                                                       (+ input (* 0.3 in) (* (- 1 f) out)))
-                                                     input)
-                                         rest)
-                                in (cons input (take 3 out))]
-                            [in out])))
-                      [(repeat 4 0) (repeat 4 0)])
-          (map (comp last second)))))
+     (let [in (double-array poles)
+           out (double-array poles)]
+       (->>
+        (map vector samples (iterate inc 0))
+        (map (fn [[^double input ^long t]]
+               (let [f (* (as-period (fc t)) 1.16)
+                     fb (* (as-period (res t)) (- 1.0 (* 0.15 f f)))]
+                 (loop [input (-> input
+                                  (- (* (aget out (dec poles)) fb))
+                                  (* 0.35013 (* f f) (* f f)))
+                        idx 0]
+                   (if (< idx poles)
+                     (let [output (+ input
+                                     (* 0.3 (aget in idx))
+                                     (* (- 1 f) (aget out idx)))]
+                       (aset out idx output)
+                       (aset in idx input)
+                       (recur output (inc idx)))
+                     input)))))))))
 
 (defn tone
   ([note length] (tone note length sin))
@@ -152,8 +157,8 @@
 (defn write-sample-byte [^"[B" buffer ^long offset ^long sample]
   (let [high (unchecked-byte (+ (bit-and (bit-shift-right sample 8) 0xFF)))
         low (unchecked-byte (bit-and sample 0xFF))]
-    (aset-byte buffer (int offset) high)
-    (aset-byte buffer (int (inc offset)) low)
+    (aset buffer offset high)
+    (aset buffer (inc offset) low)
     buffer))
 
 (defn write-sample-buffer [^"[B" buffer samples]
