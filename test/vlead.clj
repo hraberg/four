@@ -107,23 +107,31 @@
 (defn lp-filter [fc res samples]
   (let [in (double-array poles)
         out (double-array poles)]
-    (->>
-     (map vector samples (iterate inc 0))
-     (map (fn [[^double input ^long t]]
-            (let [f (* (fc t) 1.16)
-                  fb (* (res t) (- 1.0 (* 0.15 f f)))]
-              (loop [input (-> input
-                               (- (* (aget out (dec poles)) fb))
-                               (* 0.35013 (* f f) (* f f)))
-                     idx 0]
-                (if (== idx poles)
-                  input
-                  (let [output (+ input
-                                  (* 0.3 (aget in idx))
-                                  (* (- 1 f) (aget out idx)))]
-                    (aset out idx output)
-                    (aset in idx input)
-                    (recur output (inc idx)))))))))))
+    (->> samples
+         (map-indexed (fn [^long t ^double input]
+                        (let [f (* (fc t) 1.16)
+                              fb (* (res t) (- 1.0 (* 0.15 f f)))]
+                          (loop [input (-> input
+                                           (- (* (aget out (dec poles)) fb))
+                                           (* 0.35013 (* f f) (* f f)))
+                                 idx 0]
+                            (if (== idx poles)
+                              input
+                              (let [output (+ input
+                                              (* 0.3 (aget in idx))
+                                              (* (- 1 f) (aget out idx)))]
+                                (aset out idx output)
+                                (aset in idx input)
+                                (recur output (inc idx)))))))))))
+
+(defn velocity [vol samples]
+  (->> samples
+       (map-indexed (fn [^long t ^double input]
+                      (* (vol t) input)))))
+
+(defn oscillator [osc note]
+  (->> (iterate inc 0)
+       (map (partial osc note))))
 
 (defn tone
   ([note length] (tone note length sin))
@@ -131,9 +139,8 @@
      (let [[length vol] (envelope vol length)
            [_ fc] (envelope fc length)
            [_ res] (envelope res length)]
-       (->> (iterate inc 0)
-            (map (juxt (partial (or note-osc osc) (note [n oct])) vol))
-            (map (partial apply *))
+       (->> (oscillator (or note-osc osc) (note [n oct]))
+            (velocity vol)
             (lp-filter (or fc (constantly 1)) (or res (constantly 0)))
             (take length)))))
 
