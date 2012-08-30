@@ -18,29 +18,26 @@
 
 (defn timeline [] (repeat frame))
 
-(defn draw
-  ([c f s]
-     (let [b (.getBufferStrategy c)
-           g (.getDrawGraphics b)
-           [w h] [(.getWidth c) (.getHeight c)]]
-       (try
-         (f g w h (update-in s [:frame] inc))
-         (finally
-          (.dispose g)
-          (when-not (.contentsLost b)
-            (.show b)))))))
+(defn draw [c f s]
+  (when (.isDisplayable c)
+    (let [b (.getBufferStrategy c)
+          g (.getDrawGraphics b)
+          [w h] [(.getWidth c) (.getHeight c)]]
+      (try
+        (f g w h (update-in s [:frame] inc))
+        (finally
+         (.dispose g)
+         (when-not (.contentsLost b)
+           (.show b)))))))
 
 (defn run [s f]
   (let [t (System/nanoTime)]
-    (try
-      (let [s (f s)
-            d (- (System/nanoTime) t)
-            l (/ 1000000000 hz)]
-        (when (<  d l)
-          (Thread/sleep (/ (- l d) 1000000)))
-        (assoc s :duration d))
-      (catch Exception e
-        (println e)))))
+    (let [s (f s)
+          d (- (System/nanoTime) t)
+          l (/ 1000000000 hz)]
+      (when (<  d l)
+        (Thread/sleep (/ (- l d) 1000000)))
+      (assoc s :duration d))))
 
 (defn animate [d fs]
   (map #(partial d %) fs))
@@ -48,9 +45,8 @@
 (defn canvas []
   (let [f (doto (JFrame.)
             (.setResizable false)
-            (.setVisible true)
-            .requestFocus
-            (.setDefaultCloseOperation JFrame/DISPOSE_ON_CLOSE))
+            .show
+            (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE))
         c (Canvas.)]
     (doto (.getContentPane f)
       (.setPreferredSize (Dimension. w h))
@@ -61,7 +57,10 @@
       (.createBufferStrategy 2))))
 
 (defn start []
-  (reductions run {:frame 0} (animate (partial draw (canvas)) (timeline))))
+  (->> (timeline)
+       (animate (partial draw (canvas)))
+       (reductions run {:frame 0})
+       (take-while identity)))
 
-(defn -main [& args]
+(defn -main []
   (dorun (start)))

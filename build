@@ -20,6 +20,10 @@ java -cp `lein classpath` proguard.ProGuard @conf.pro
 mv $JAR $PROJECT-leiningen.jar
 mv $JAR_PG $JAR
 
+cp -a ../resources/META-INF .
+zip -qrD $JAR META-INF
+pack200 -r $JAR
+
 SIZE=`ls -l $JAR | awk '{print $5}'`
 echo "$JAR $SIZE"
 

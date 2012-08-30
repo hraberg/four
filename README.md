@@ -7,13 +7,14 @@ More or less, your demo has to be a 4k stripped Clojure jar, that can be run lik
     java -cp clojure-1.4.0.jar:target/four.jar four
 
     $ ls -l target/four.jar
-    -rw-rw-r-- 1 hraberg hraberg 2030 2012-08-22 12:00 target/four.jar
+    -rw-rw-r-- 1 hraberg hraberg 1957 2012-08-22 12:00 target/four.jar
 
     $ unzip -l target/four.jar
     Archive:  target/four.jar
+    PACK200
       Length      Date    Time    Name
     ---------  ---------- -----   ----
-          100  2012-08-22 12:00   META-INF/MANIFEST.MF
+           41  2012-08-22 12:00   META-INF/MANIFEST.MF
          1670  2012-08-22 12:00   four.class
          1570  2012-08-22 12:00   four.clj
     ---------                     -------
